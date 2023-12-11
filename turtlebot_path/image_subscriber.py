@@ -8,10 +8,10 @@ import numpy as np
  
 def thresholding(img):
     imgHsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    lower_black = np.array([0,0,0])
-    upper_black = np.array([155,100,200])
-    mask_black = cv2.inRange(imgHsv, lower_black, upper_black)
-    return mask_black
+    lower_white = np.array([0,0,209])
+    upper_white = np.array([29,255,255])
+    mask_white = cv2.inRange(imgHsv, lower_black, upper_black)
+    return mask_white
 
 class ImageSubscriber(Node):
   
