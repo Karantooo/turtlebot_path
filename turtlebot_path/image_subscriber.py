@@ -51,7 +51,7 @@ def getHistogram(img, display = False, minPercentage = 0.1, region = 4):
     if region == 1:
       histValues = np.sum(img, axis=0)
     else :
-      debugShape = img[((img.shape[0]//region)):,:]
+      debugShape = img[((img.shape[0]//region))*3:,:]
       print(debugShape.shape)
       histValues = np.sum(debugShape, axis=0)
       #cv2.imread("Prueba", img[img.shape[0]//region:,:])
@@ -83,114 +83,6 @@ def getHistogram(img, display = False, minPercentage = 0.1, region = 4):
     
     return regionBaseColumn
 
-class ImageSubscriber(Node):
-  
-  def __init__(self):
-    
-    # Initiate the Node class's constructor and give it a name
-    super().__init__('image_subscriber')
-      
-    # Create the subscriber. This subscriber will receive an Image
-    # from the video_frames topic. The queue size is 10 messages.
-    self.subscription = self.create_subscription(
-      Image, 
-      '/camera/image_raw', 
-      self.listener_callback, 
-      10)
-    self.subscription # prevent unused variable warning
-
-    self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
-      
-    # Used to convert between ROS and OpenCV images
-    self.br = CvBridge()
-
-  def get_lane_curve(self, img, display = False):
-
-    # Convertion of the image in a black and white one that highlights the path
-    img_thtresh = thresholding(img)
-
-    # Projection of the image in a plane containing only the area of interest
-    wT = img.shape[1]
-    hT = img.shape[0]
-    points = getAreaOfInterest(wT, hT)
-
-    imgWarp = warpImage(img_thtresh, points, wT, hT, inv = False)
-
-    # Where the center of the image is
-    if (display):
-      imageCenterColumn, imgCenterHist = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
-    else:
-      imageCenterColumn = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
-
-    # Where the center of the path is
-    if (display):
-      pathCenterColumn, imgPathHist = getHistogram(imgWarp , display, minPercentage = 0.5, region = 4)
-    else:
-      pathCenterColumn = getHistogram(imgWarp , display, minPercentage = 0.5, region = 4)
-       
-    # Getting of the curve turn
-    curvePreAverage = imageCenterColumn - pathCenterColumn 
-
-    recentCurvesList.append(curvePreAverage) # Register of the curve turn prior averaging
-    if len(recentCurvesList) > recentCurvesLength:
-      recentCurvesList.pop(0)
-    curvePostAverage = int(sum(recentCurvesList)/len(recentCurvesList)) # Averaging with the last turns
-
-    # Displaying
-    if (display):
-       imgResult = getResultImage(img, wT, hT, imgWarp, points, curvePostAverage, 0)
-       imgResult = drawPoints(imgResult, points)
-       allImages = stackImages(0.7, [[img, img_thtresh, imgResult], [imgWarp, imgCenterHist, imgPathHist]])
-       cv2.imshow("Camera View", allImages)
-
-    print("Giro: " + str(curvePostAverage))
-
-    return curvePostAverage
-
-   
-  def listener_callback(self, data):
-    # Display the message on the console
-    self.get_logger().info('Receiving video frame')
- 
-    current_frame = self.br.imgmsg_to_cv2(data)
-    current_frame = cv2.resize(current_frame, (800, 600))
-
-    ammount_of_rotation = self.get_lane_curve(current_frame, display = True)
-
-    msg = Twist()
-    
-    #Tomando un ajuste por minimos cuadrados
-    if abs(ammount_of_rotation) <= 150:
-       msg.linear.x = -(1809/2788150)*abs(ammount_of_rotation) + (56267/557630)
-       msg.angular.z = -0.001 * ammount_of_rotation
-    else:
-      msg.linear.x = 0.0
-      msg.angular.z = -0.001 * ammount_of_rotation
-    self.cmd_vel_pub.publish(msg)
-    
-    cv2.waitKey(1)
-  
-def main(args=None):
-  
-  # Initialize the rclpy library
-  rclpy.init(args=args)
-  
-  # Create the node
-  image_subscriber = ImageSubscriber()
-  
-  # Spin the node so the callback function is called.
-  rclpy.spin(image_subscriber)
-  
-  # Destroy the node explicitly
-  # (optional - otherwise it will be done automatically
-  # when the garbage collector destroys the node object)
-  image_subscriber.destroy_node()
-  
-  # Shutdown the ROS client library for Python
-  rclpy.shutdown()
-  
-if __name__ == '__main__':
-  main()
 
 ## Displaying Functions
 
@@ -270,5 +162,113 @@ def stackImages(scale,imgArray):
             if len(imgArray[x].shape) == 2: imgArray[x] = cv2.cvtColor(imgArray[x], cv2.COLOR_GRAY2BGR)
         hor= np.hstack(imgArray)
         ver = hor
-
     return ver
+
+class ImageSubscriber(Node):
+  
+  def __init__(self):
+    
+    # Initiate the Node class's constructor and give it a name
+    super().__init__('image_subscriber')
+      
+    # Create the subscriber. This subscriber will receive an Image
+    # from the video_frames topic. The queue size is 10 messages.
+    self.subscription = self.create_subscription(
+      Image, 
+      '/camera/image_raw', 
+      self.listener_callback, 
+      10)
+    self.subscription # prevent unused variable warning
+
+    self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
+      
+    # Used to convert between ROS and OpenCV images
+    self.br = CvBridge()
+
+  def get_lane_curve(self, img, display = False):
+
+    # Convertion of the image in a black and white one that highlights the path
+    img_thtresh = thresholding(img)
+
+    # Projection of the image in a plane containing only the area of interest
+    wT = img.shape[1]
+    hT = img.shape[0]
+    points = getAreaOfInterest(wT, hT)
+
+    imgWarp = warpImage(img_thtresh, points, wT, hT, inv = False)
+
+    # Where the center of the image is
+    if (display):
+      imageCenterColumn, imgCenterHist = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
+    else:
+      imageCenterColumn = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
+
+    # Where the center of the path is
+    if (display):
+      pathCenterColumn, imgPathHist = getHistogram(imgWarp , display, minPercentage = 0.5, region = 4)
+    else:
+      pathCenterColumn = getHistogram(imgWarp , display, minPercentage = 0.5, region = 4)
+       
+    # Getting of the curve turn
+    curvePreAverage = imageCenterColumn - pathCenterColumn 
+
+    recentCurvesList.append(curvePreAverage) # Register of the curve turn prior averaging
+    if len(recentCurvesList) > recentCurvesLength:
+      recentCurvesList.pop(0)
+    curvePostAverage = int(sum(recentCurvesList)/len(recentCurvesList)) # Averaging with the last turns
+
+    # Displaying
+    if (display):
+       imgResult = getResultImage(img, wT, hT, imgWarp, points, curvePostAverage, 0)
+       imgResult = drawPoints(imgResult, points)
+       allImages = stackImages(0.7, [[img, img_thtresh, imgResult], [imgWarp, imgCenterHist, imgPathHist]])
+       cv2.imshow("Camera View", allImages)
+
+    print("Giro: " + str(curvePostAverage))
+
+    return curvePostAverage
+
+   
+  def listener_callback(self, data):
+    # Display the message on the console
+    self.get_logger().info('Receiving video frame')
+ 
+    current_frame = self.br.imgmsg_to_cv2(data)
+    current_frame = cv2.resize(current_frame, (800, 600))
+
+    ammount_of_rotation = self.get_lane_curve(current_frame, display = True)
+
+    msg = Twist()
+    
+    #Tomando un ajuste por minimos cuadrados
+    if abs(ammount_of_rotation) <= 175:
+       msg.linear.x = -(0.00028)*abs(ammount_of_rotation) + (0.116)
+       msg.angular.z = -0.001 * ammount_of_rotation
+    else:
+      msg.linear.x = 0.0
+      msg.angular.z = -0.001 * ammount_of_rotation
+    self.cmd_vel_pub.publish(msg)
+    
+    cv2.waitKey(1)
+  
+def main(args=None):
+  
+  # Initialize the rclpy library
+  rclpy.init(args=args)
+  
+  # Create the node
+  image_subscriber = ImageSubscriber()
+  
+  # Spin the node so the callback function is called.
+  rclpy.spin(image_subscriber)
+  
+  # Destroy the node explicitly
+  # (optional - otherwise it will be done automatically
+  # when the garbage collector destroys the node object)
+  image_subscriber.destroy_node()
+  
+  # Shutdown the ROS client library for Python
+  rclpy.shutdown()
+  
+if __name__ == '__main__':
+  main()
