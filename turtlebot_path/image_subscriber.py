@@ -30,9 +30,9 @@ def warpImage(img, points, wT, hT, inv = True):
     return imgWarp
 
 def getAreaOfInterest(wT=800, hT=600):
-   widthTop = 254 #Ojo
-   heightTop = 446
-   widthBottom = 169 #Ojo
+   widthTop = 302 #Ojo
+   heightTop = 397
+   widthBottom = 198 #Ojo
    heightBottom = 600
    points = np.float32([(widthTop, heightTop), (wT-widthTop, heightTop),
                       (widthBottom , heightBottom ), (wT-widthBottom, heightBottom)])
