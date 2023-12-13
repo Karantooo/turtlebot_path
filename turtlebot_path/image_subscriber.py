@@ -158,8 +158,14 @@ class ImageSubscriber(Node):
     ammount_of_rotation = self.get_lane_curve(current_frame, display = True)
 
     msg = Twist()
-    msg.linear.x = 0.04
-    msg.angular.z = -0.001 * ammount_of_rotation
+    
+    #Tomando un ajuste por minimos cuadrados
+    if abs(ammount_of_rotation) <= 150:
+       msg.linear.x = -(1809/2788150)*abs(ammount_of_rotation) + (56267/557630)
+       msg.angular.z = -0.001 * ammount_of_rotation
+    else:
+      msg.linear.x = 0.0
+      msg.angular.z = -0.001 * ammount_of_rotation
     self.cmd_vel_pub.publish(msg)
     
     cv2.waitKey(1)
