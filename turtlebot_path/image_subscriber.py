@@ -79,9 +79,16 @@ def getHistogram(img, display = False, minPercentage = 0.1, region = 4):
       
       # We also draw in the new image a point of the center of the found curve
       cv2.circle(imgHist,(regionBaseColumn, img.shape[0]), 20, (0,255,255), cv2.FILLED)
-      return regionBaseColumn, imgHist
+      if region == 1: 
+        return regionBaseColumn, imgHist, maxValue
+      else:
+         return regionBaseColumn, imgHist
+    
+    if region == 1:
+      return regionBaseColumn, maxValue
     
     return regionBaseColumn
+       
 
 
 ## Displaying Functions
@@ -199,9 +206,9 @@ class ImageSubscriber(Node):
 
     # Where the center of the image is
     if (display):
-      imageCenterColumn, imgCenterHist = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
+      imageCenterColumn, imgCenterHist,maxValue = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
     else:
-      imageCenterColumn = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
+      imageCenterColumn, maxValue = getHistogram(imgWarp , display, minPercentage = 0.9, region = 1)
 
     # Where the center of the path is
     if (display):
@@ -222,11 +229,11 @@ class ImageSubscriber(Node):
        imgResult = getResultImage(img, wT, hT, imgWarp, points, curvePostAverage, 0)
        imgResult = drawPoints(imgResult, points)
        allImages = stackImages(0.7, [[img, img_thtresh, imgResult], [imgWarp, imgCenterHist, imgPathHist]])
-       cv2.imshow("Camera View", allImages)
+       cv2.imshow("Camera View", allImages)       
 
-    print("Giro: " + str(curvePostAverage))
+    self.get_logger().info("Giro: " + str(curvePostAverage))
 
-    return curvePostAverage
+    return curvePostAverage, maxValue
 
    
   def listener_callback(self, data):
@@ -236,14 +243,17 @@ class ImageSubscriber(Node):
     current_frame = self.br.imgmsg_to_cv2(data)
     current_frame = cv2.resize(current_frame, (800, 600))
 
-    ammount_of_rotation = self.get_lane_curve(current_frame, display = True)
+    ammount_of_rotation, maxValue = self.get_lane_curve(current_frame, display = True)
 
     msg = Twist()
-    
+    print(maxValue)
+    if maxValue < 10000:
+       msg.linear.x = 0.0
+       msg.angular.z = -0.1 * (ammount_of_rotation)
     #Tomando un ajuste por minimos cuadrados
-    if abs(ammount_of_rotation) <= 175:
+    elif abs(ammount_of_rotation) <= 175:
        msg.linear.x = -(0.00028)*abs(ammount_of_rotation) + (0.116)
-       msg.angular.z = -0.001 * ammount_of_rotation
+       msg.angular.z = -0.001 * (ammount_of_rotation)
     else:
       msg.linear.x = 0.0
       msg.angular.z = -0.001 * ammount_of_rotation
